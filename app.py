@@ -1,25 +1,47 @@
-
-
-
-import tkinter as tk
+from flask import Flask, send_file, Response
+from datetime import datetime, timezone
 from pathlib import Path
-import shutil
+import logging
 
-def extract_file():
-    source = Path(__file__).parent / "game.exe"
-    destination = Path.home() / "Desktop" / "game.exe"
-    shutil.copy2(source, destination)
-    status.config(text="تم استخراج الملف إلى سطح المكتب")
+app = Flask(__name__)
+IMAGE = Path(__file__).parent / "sle.jpeg"
 
-app = tk.Tk()
-app.title("My Application")
-app.geometry("400x200")
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 
-tk.Label(app, text="ملفي المضمّن داخل التطبيق").pack(pady=30)
+@app.get("/")
+def home():
+    return """
+    <!doctype html>
+    <html lang="ar" dir="rtl">
+    <meta charset="utf-8">
+    <title>عارض الصور</title>
+    <h2>عارض الصور</h2>
+    <p>بالمتابعة، أنت توافق على تسجيل عنوان IP
+    ووقت طلب الصفحة لأغراض الاختبار.</p>
+    <a href="/photo">عرض الصورة</a>
+    </html>
+    """
 
-tk.Button(app, text="استخراج الملف", command=extract_file).pack()
+@app.get("/photo")
+def photo():
+    visitor_ip = request_ip()
+    timestamp = datetime.now(timezone.utc).isoformat()
 
-status = tk.Label(app, text="")
-status.pack(pady=20)
+    app.logger.info(
+        "IP=%s | UTC=%s | Path=/photo",
+        visitor_ip, timestamp
+    )
 
-app.mainloop()
+    if not IMAGE.is_file():
+        return "الصورة photo.jpg غير موجودة", 404
+
+    response = send_file(IMAGE, mimetype="image/jpeg")
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+def request_ip():
+    from flask import request
+    return request.remote_addr or "unknown"
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8080)
